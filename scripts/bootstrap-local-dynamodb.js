@@ -3,7 +3,7 @@ const { readFileSync } = require('fs');
 const { parse } = require('yaml');
 
 // Configuration
-const DYNAMODB_ENDPOINT = process.env.DYNAMODB_ENDPOINT || 'http://localhost:8000';
+const DYNAMODB_ENDPOINT = process.env.DYNAMODB_ENDPOINT || 'http://dynamodb-local:8000';
 const REGION = 'us-west-2'; // This doesn't matter for local DynamoDB
 const TEMPLATE_PATH = './server/iac/dynamodb.yml';
 
@@ -44,7 +44,20 @@ async function bootstrapLocalDynamoDB() {
   // Read and parse the CloudFormation template
   console.log(`📋 Reading template file: ${TEMPLATE_PATH}`);
   const templateContent = readFileSync(TEMPLATE_PATH, 'utf8');
-  const template = parse(templateContent);
+  
+  // Configure YAML parser to handle CloudFormation intrinsic functions
+  const template = parse(templateContent, {
+    customTags: [
+      {
+        tag: '!Ref',
+        resolve: (str) => ({ Ref: str })
+      },
+      {
+        tag: '!GetAtt',
+        resolve: (str) => ({ 'Fn::GetAtt': str })
+      }
+    ]
+  });
   
   // Extract table definitions from the template
   const tables = Object.entries(template.Resources)
